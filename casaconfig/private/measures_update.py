@@ -305,18 +305,44 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
             print_log_messages('  ... finding available measures ...', logger)
 
-            files = measures_available(measures_site=measures_site)
-            site = files[0]
-            files = files[1:]
+            target = None
+            site = None
 
-            # target filename to download
-            # for the non-force unspecified version case this can only get here if the age is > 1 day so there should be a newer version
-            # but that isn't checked - this could install a version that's already installed
-            target = files[-1] if version is None else version
-            if target not in files:
-                print_log_messages("measures_update can't find specified version %s at site %s" % (site,target), logger, True)
-
+            # if a specific version has been request AND measures_site is a list with more than one value
+            # then find the site with that version in it. Turn off logging in measures_available calls
+            # here as the age of the site doesn't matter
+            if version is not None and isinstance(measures_site, list) and len(measures_site) > 1:
+                target = version
+                for this_site in measures_site:
+                    files = measures_available(measures_site=this_site, logger=None)
+                    # make sure that site is excluded from files before target is checked
+                    files = files[1:]
+                    if target in files:
+                        site = this_site
+                        break
+                if site is None:
+                    print_log_messages("measures_update can't find specfied version %s at any of the sites in the measures_site list" % target, logger, True)
+                # else site and  target are set
             else:
+                # if measure_available sorts out what site to use if it's a list with more than one element
+                # a specific version probably needs to use a specific site to make it work
+                # if a specific version has been requested then the age of the site isn't an issue, turn logging off
+                this_logger = logger if version is None else None
+                files = measures_available(measures_site=measures_site, logger=this_logger)
+                site = files[0]
+                # this makes sure that the site is exclude from files before target is checked.
+                files = files[1:]
+
+                # target filename to download
+                # for the non-force unspecified version case this can only get here if the age is > 1 day so there should be a newer version
+                # but that isn't checked - this could install a version that's already installed
+                target = files[-1] if version is None else version
+                if target not in files:
+                    print_log_messages("measures_update can't find specified version %s at site %s" % (site,target), logger, True)
+                    # unset site here to signal nothing to extract
+                    site = None
+
+            if site is not None:
                 # there are files to extract
                 print_log_messages('  ... downloading %s from %s to %s ...' % (target, site, path), logger)
 

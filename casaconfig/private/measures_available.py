@@ -99,6 +99,21 @@ def measures_available(measures_site=None, logger=None):
     if measures_site is None:
         measures_site = _config.measures_site
 
+    # this makes sure that measures_site_interval can be used as an int
+    # this raises a ValueError if there's a problem
+    measures_site_interval = int(_config.measures_site_interval)
+
+    def measuresFileAge(measuresFileName):
+        # return the age of a measuresFile, in days before today
+        # do not attempt to correct for time zones
+        # only uses the year, month, and day fields
+        
+        date_pattern = r".*_Measures_(\d{4})(\d{2})(\d{2})-.*"
+        dateMatch = re.search(date_pattern, measuresFileName)
+        fileDate = date(int(dateMatch.group(1)),int(dateMatch.group(2)),int(dateMatch.group(3)))
+        dateDiff = date.today() - fileDate
+        return dateDiff.days        
+
     if isinstance(measures_site, list):
         saved_exc = None
         # this list is only used if all of the sites in the list are out of date
@@ -107,24 +122,14 @@ def measures_available(measures_site=None, logger=None):
         # the last entry in file_list and file_list is the list of files at that
         # site
         file_age_list = []
-        
-        date_pattern = r".*_Measures_(\d{4})(\d{2})(\d{2})-.*"
-        
-        # this makes sure that measures_site_interval can be used as an int
-        # this raises a ValueError if there's a problem
-        measures_site_interval = int(_config.measures_site_interval)
             
         for this_site in measures_site:
             try:
                 saved_exc = None
-                result = measures_available(this_site)
+                # turn off the logger here so that only this initial call can produce a logged message warning
+                result = measures_available(this_site, logger=None)
                 if len(result) > 0:
-                    # get the age, in days, of the last entry in that list
-                    # do not attempt to correct for time zones
-                    dateMatch = re.search(date_pattern,result[-1])
-                    siteDate = date(int(dateMatch.group(1)),int(dateMatch.group(2)),int(dateMatch.group(3)))
-                    dateDiff = date.today() - siteDate
-                    siteAge = dateDiff.days
+                    siteAge = measuresFileAge(result[-1])
                     if siteAge <= measures_site_interval:
                         return (result)
                     # the only way to get here is when the last file in result is more than measures_site_interval days from today
@@ -150,10 +155,9 @@ def measures_available(measures_site=None, logger=None):
                         result = age_tuple[1]
                 # and log that that's what's going on, not an exception
                 msgs = []
-                msgs.append("Warning: the most recent measures tar file at each of the sites was older than config.measures_interval_list")
+                msgs.append("Warning: the most recent measures tar file at each of the sites was older than config.measures_site_interval")
                 msgs.append("%s had the most recent measures tar file, returning that list" % result[0])
-                msgs.append("config.measures_interval_list = %s and the most recent measures file in this list is %s days old" % (_config.measures_site_interval, thisAge))
-                print_log_messages(msgs, logger, verbose)
+                print_log_messages(msgs, logger, False, verbose)
                 return(result)
             else:
                 # that's odd, probably measures_site was an empty list or no files were found at any of the sites
@@ -190,7 +194,16 @@ def measures_available(measures_site=None, logger=None):
             
             # and prepend the measures_site to the list
             result.insert(0,measures_site)
-            
+
+            # if the logger is set, check if the site appears to be too old and
+            # log a warning if it is
+            if logger is not None:
+                siteAge = measuresFileAge(result[-1])
+                if siteAge > measures_site_interval:
+                    msgs = []
+                    msgs.append("Warning: the most recent tar file at %s was older than config.measures_site_interval" % measures_site)
+                    print_log_messages(msgs, logger, False, verbose)
+                    
             return (result)
     
         except NoNetwork as exc:
