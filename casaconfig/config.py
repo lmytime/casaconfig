@@ -90,7 +90,10 @@ with _io.all_redirected(to=__os.devnull) if _module_execution else _io.no_redire
                  ## config file is a fully qualified path
                  try:
                      __orig = { k: _config_defaults._globals( )[k] for k in __defaults }
-                     exec( open(__f).read( ), __orig )
+                     __exec_code = None
+                     with open(__f) as f:
+                         __exec_code = f.read()
+                     exec( __exec_code, __orig )
                  except Exception as e:
                      __errors_encountered[__f] = __traceback.format_exc( )
                  else:
@@ -103,7 +106,10 @@ with _io.all_redirected(to=__os.devnull) if _module_execution else _io.no_redire
             if __spec is not None:
                 try:
                     __orig = {k: _config_defaults._globals()[k] for k in __defaults}
-                    exec(open(__spec.origin).read(), __orig)
+                    __exec_code = None
+                    with open(__spec.origin) as f:
+                        __exec_code = f.read()
+                    exec(__exec_code, __orig)
                 except Exception as e:
                     __errors_encountered[__spec.origin] = __traceback.format_exc()
                 else:

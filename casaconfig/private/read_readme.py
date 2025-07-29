@@ -34,6 +34,9 @@ def read_readme(path):
     files for measures data. If no site string is seen the value in the dictionary
     is None.
 
+    The version and date strings are required. If they are not found a BadReadme
+    exception is raised.
+
     Parameters
        - path (str) - the path to the file to be read
 
@@ -93,6 +96,9 @@ def read_readme(path):
     except Exception as exc:
         # silently return None, handled elsewhere
         result = None
-        
+
+    # require that date and version are now set in result
+    if result is not None and ((len(result['version'])==0) or (len(result['date'])==0)):
+        raise BadReadme('Readme file missing required version or date fields, %s' % path)
 
     return result

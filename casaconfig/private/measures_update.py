@@ -198,14 +198,19 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
             return
         
         # don't overwrite something that looks bad unless forced to do so
-        if currentVersion == 'invalid':
+        if 'invalid' in currentVersion:
             raise NoReadme('measures_update: no measures readme.txt file found at %s. Nothing updated or checked.' % path)
         
-        if currentVersion == 'error':
-            raise BadReadme('measures_update: the measures readme.txt file at %s could not be read as expected, an update can not proceed unless force is True' % path)
+        if 'error' in currentVersion:
+            msg = "measures_update: the measures readme.txt file at %s could not be read as expected, an update can not proceed unless force is True" % path
+            # add any additional error message, anything after the first ":" if is found
+            colonIndex = currentVersion.find(":")
+            if colonIndex != -1:
+                msg += "; " + currentVersion[colonIndex+1:]
+            raise BadReadme(msg)
 
         # don't overwrite something that looks like valid measures data unless forced to do so
-        if currentVersion == 'unknown':
+        if 'unknown' in currentVersion:
             print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger)
             return
 

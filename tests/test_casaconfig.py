@@ -743,7 +743,6 @@ class casaconfig_test(unittest.TestCase):
         ref = True if "UnsetMeasurespath" in str(output) else False
         self.assertTrue(ref, "UnsetMeasurespath not seen in output for do_auto_updates and measurespath=None")
 
-
     def test_exceptions_with_data(self):
         '''test that exceptions that require data happen when expected'''
        
@@ -751,7 +750,6 @@ class casaconfig_test(unittest.TestCase):
         self.populate_testrundata()
 
         # BadLock
-        print("\nTesting for BadLock in test_exceptions_with_data")
         # insert a non-empty lock file
         exceptionSeen = False
         lockPath = os.path.join(self.testRundataPath,'data_update.lock')
@@ -785,8 +783,6 @@ class casaconfig_test(unittest.TestCase):
         self.assertTrue(exceptionSeen, "BadLock not seen as expected in data_update with existing data test")
         # remove the lock file
         os.remove(lockPath)
-        print("BadLock test passed in test_exceptions_with_data\n")
-            
 
         # BadReadme
 
@@ -850,7 +846,6 @@ class casaconfig_test(unittest.TestCase):
             # this check happens before the age is determined, so no need to backdate the readme.txt file here
             casaconfig.measures_update(self.testRundataPath)
         except casaconfig.BadReadme as exc:
-            print(str(exc))
             exceptionSeen = True
         except Exception as exc:
             print("unexpected exception seen when testing for BadRadme in measures_update")
@@ -864,12 +859,10 @@ class casaconfig_test(unittest.TestCase):
 
         # get the current permissions of the testRundataPath
         orig_pstat = stat.S_IMODE(os.stat(self.testRundataPath).st_mode)
-        print('orig_pstat = %s' % orig_pstat)
         # a bitmask that's the opposite of all of the write permission bits
         no_write = ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         # remove the write permissions
         pstat = orig_pstat & no_write
-        print('pstat = %s' % pstat)
         os.chmod(self.testRundataPath,pstat)
 
 
@@ -890,8 +883,6 @@ class casaconfig_test(unittest.TestCase):
         os.chmod(self.testRundataPath,orig_pstat)
         
         self.assertTrue(exceptionSeen, "NotWritable not seen from measures_update")
-
-        
         
 if __name__ == '__main__':
 

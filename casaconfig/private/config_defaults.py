@@ -45,5 +45,8 @@ __flags,__args = __parser.parse_known_args(_sys.argv)
 def _globals( ):
     return globals()
 
-exec( open(_os.path.join(_os.path.dirname(__file__),'config_defaults_static.py')).read( ), globals( ) )
+__exec_code = None
+with open(_os.path.join(_os.path.dirname(__file__),'config_defaults_static.py')) as f:
+    __exec_code = f.read( )
+exec( __exec_code, globals( ) )
 
