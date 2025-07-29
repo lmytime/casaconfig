@@ -42,10 +42,20 @@ def data_available():
 
     """
 
-    from .get_available_tarfiles import get_available_tarfiles
+    from .get_available_files import get_available_files
+
+    # the pattern matches <anything>_Measures_YYYY.MM.DD-v.<anything>tar<anything>
+    # where YYYY MM DD are digits that must match that length.
+    #       v is also a digit, but it can be 1 or more digits in length
+    #       and "tar" can appear anywhere after the "." after the "v" digit(s)
+    #       this allows the specific compression to change over time so
+    #       long as the tarfile module can understand that compression
+    #       Note that "get_available_files" always exludes files that end in
+    #       ".md5" so it's not necessary to exclude that string from this pattern.
+    pattern = r"^casarundata-\d{4}\.\d{2}\.\d{2}-\d+\..*tar.*"
 
     try:
-        return get_available_tarfiles('https://go.nrao.edu/casarundata', 'casarundata')
+        return get_available_files('https://go.nrao.edu/casarundata', pattern)
     except urllib.error.URLError as urlerr:
         raise RemoteError("Unable to retrieve list of available casarundata versions : " + str(urlerr)) from None
         

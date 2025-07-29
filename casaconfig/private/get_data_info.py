@@ -35,7 +35,10 @@ def get_data_info(path=None, logger=None, type=None):
     was installed. These values are taken from the readme.txt file for each type.
     For 'casarundata' an additional field of 'manifest' is present which is
     the list of files that have been installed for that specific version (this will
-    be empty for an unknown or invalid version).
+    be empty for an unknown or invalid version). The measures dictionary also contains
+    a 'site' filed which holds the URL of the site that supplied that version. For
+    older readme files that lack any site infromation the site is assumed to be 
+    the astron site.
 
     The 'release' dictionary comes from the release_data_readme.txt file which is copied
     into place when a modular CASA is built. It consists of 'casarundata' and 'measures' 
@@ -93,6 +96,7 @@ def get_data_info(path=None, logger=None, type=None):
     from .read_readme import read_readme
     
     from casaconfig import UnsetMeasurespath
+    from casaconfig import BadReadme
 
 
     currentTime = time.time()
@@ -126,14 +130,18 @@ def get_data_info(path=None, logger=None, type=None):
                 if os.path.exists(datareadme_path):
                     # the readme exists, get the info
                     result['casarundata'] = {'version':'error', 'date':'', 'manifest':[], 'age':None}
-                    readmeContents = read_readme(datareadme_path)
-                    if readmeContents is not None:
-                        currentAge = (currentTime - os.path.getmtime(datareadme_path)) / secondsPerDay
-                        currentVersion = readmeContents['version']
-                        currentDate = readmeContents['date']
-                        # the manifest ('extra') must exist with at least 1 entry, otherwise this is no a valid readme file and the version should be 'error'
-                        if len(readmeContents['extra']) > 0:
-                            result['casarundata'] = {'version':currentVersion, 'date':currentDate, 'manifest':readmeContents['extra'], 'age':currentAge}
+                    try:
+                        readmeContents = read_readme(datareadme_path)
+                        if readmeContents is not None:
+                            currentAge = (currentTime - os.path.getmtime(datareadme_path)) / secondsPerDay
+                            currentVersion = readmeContents['version']
+                            currentDate = readmeContents['date']
+                            # the manifest ('extra') must exist with at least 1 entry, otherwise this is no a valid readme file and the version should be 'error'
+                            if len(readmeContents['extra']) > 0:
+                                result['casarundata'] = {'version':currentVersion, 'date':currentDate, 'manifest':readmeContents['extra'], 'age':currentAge}
+                    except BadReadme as exc:
+                        # put the exception string into the version so it shows up in the summary
+                        resulte['casarundata']['version'] = "error: " + str(exc)
                 else:
                     # does it look like it's probably casarundata?
                     expected_dirs = ['alma','catalogs','demo','ephemerides','geodetic','gui','nrao']
@@ -153,21 +161,28 @@ def get_data_info(path=None, logger=None, type=None):
                 measuresreadme_path = os.path.join(path,'geodetic/readme.txt')
                 if os.path.exists(measuresreadme_path):
                     # the readme exists, get the info
-                    result['measures'] = {'version':'error', 'date':'', 'age':None}
-                    readmeContents = read_readme(measuresreadme_path)
-                    if readmeContents is not None:
-                        currentVersion = readmeContents['version']
-                        currentDate = readmeContents['date']
-                        currentAge = (currentTime - os.path.getmtime(measuresreadme_path)) / secondsPerDay
-                        result['measures'] = {'version':currentVersion,'date':currentDate,'age':currentAge}
+                    result['measures'] = {'site':'', 'version':'error', 'date':'', 'age':None}
+                    try:
+                        readmeContents = read_readme(measuresreadme_path)
+                        if readmeContents is not None:
+                            currentSite = readmeContents['site']
+                            if currentSite is None:
+                                currentSite = 'https://www.astron.nl/iers/'
+                            currentVersion = readmeContents['version']
+                            currentDate = readmeContents['date']
+                            currentAge = (currentTime - os.path.getmtime(measuresreadme_path)) / secondsPerDay
+                            result['measures'] = {'site':currentSite,'version':currentVersion,'date':currentDate,'age':currentAge}
+                    except BadReadme as exc:
+                        # put the exception string into the version so it shows up in the summary
+                        result['measures']['version'] = "error: " + str(exc)
                 else:
                     # does it look like it's probably measuresdata?
                     # path should have ephemerides and geodetic directories
                     if os.path.isdir(os.path.join(path,'ephemerides')) and os.path.isdir(os.path.join(path,'geodetic')):
-                        result['measures'] = {'version':'unknown', 'date':'', 'age':None}
+                        result['measures'] = {'site':'unknown', 'version':'unknown', 'date':'', 'age':None}
                     else:
                         # probably not measuresdata
-                        result['measures'] = {'version':'invalid', 'date':'', 'age':None}
+                        result['measures'] = {'site':'', 'version':'invalid', 'date':'', 'age':None}
 
     if type is None or type=='release':
         # release data versions
@@ -194,7 +209,7 @@ def get_data_info(path=None, logger=None, type=None):
                             elif lineType == 'measures':
                                 if measuresVersion is not None:
                                     ok = False
-                                    reason = "duplicate measures lins"
+                                    reason = "duplicate measures line"
                                     break
                                 measuresVersion = lineVers
                             else:

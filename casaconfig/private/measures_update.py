@@ -15,9 +15,9 @@
 this module will be included in the api
 """
 
-def measures_update(path=None, version=None, force=False, logger=None, auto_update_rules=False, use_astron_obs_table=False, verbose=None):
+def measures_update(path=None, version=None, force=False, measures_site=None, logger=None, auto_update_rules=False, use_astron_obs_table=False, verbose=None):
     """
-    Update or install the IERS data used for measures calculations from ASTRON into path.
+    Update or install the IERS data used for measures calculations from measures_site into path.
     
     Original data source used by ASTRON is here: https://www.iers.org/IERS/EN/DataProducts/data.html
 
@@ -30,7 +30,7 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
     value (defaults to 1).
 
     CASA maintains a separate Observatories table which is available in the casarundata
-    collection through pull_data and data_update. The Observatories table found at ASTRON
+    collection through pull_data and data_update. The Observatories table found at measures_site
     is not installed by measures_update and any Observatories file at path will not be changed
     by using this function. This behavior can be changed by setting force and use_astron_obs_table
     both to True (use_astron_obs_table is ignored when force is False).
@@ -152,6 +152,10 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
     if path is None:
         raise UnsetMeasurespath('measures_update: path is None and has not been set in config.measurespath. Provide a valid path and retry.')
 
+    if measures_site is None:
+        from .. import config as _config
+        measures_site = _config.measures_site
+
     if verbose is None:
         from .. import config as _config
         verbose = _config.casaconfig_verbose
@@ -172,15 +176,17 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
         # make dirs all the way down, if possible
         os.makedirs(path)
         
-    current = None
+    currentVersion = None
     ageRecent = False
+    currentSite = None
 
     # first, does this look like it needs to be updated
 
     # get any existing measures readme information
     readmeInfo = get_data_info(path, logger, type='measures')
     if readmeInfo is not None:
-        current = readmeInfo['version']
+        currentVersion = readmeInfo['version']
+        currentSite = readmeInfo['site']
         if readmeInfo['age'] is not None:
             ageRecent = readmeInfo['age'] < 1.0
 
@@ -192,14 +198,14 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
             return
         
         # don't overwrite something that looks bad unless forced to do so
-        if current == 'invalid':
+        if currentVersion == 'invalid':
             raise NoReadme('measures_update: no measures readme.txt file found at %s. Nothing updated or checked.' % path)
         
-        if current == 'error':
+        if currentVersion == 'error':
             raise BadReadme('measures_update: the measures readme.txt file at %s could not be read as expected, an update can not proceed unless force is True' % path)
 
         # don't overwrite something that looks like valid measures data unless forced to do so
-        if current == 'unknown':
+        if currentVersion == 'unknown':
             print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger)
             return
 
@@ -207,7 +213,10 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
         if checkVersion is None:
             # get the current most recent version
             try:
-                checkVersion = measures_available()[-1]
+                # if measures_site is a list, measures_available will return the list from the appropriate site in that list
+                # that might not be the same site recorded with currentVersion, but that's OK for this update step
+                # the currentVersion is already old enough to trigger this check for a more recent version
+                checkVersion = measures_available(measures_site=measures_site)[-1]
             except NoNetwork as exc:
                 # no network, no point in continuing, just reraise
                 raise exc
@@ -219,7 +228,7 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
                 pass
 
         # don't re-download the same data
-        if (checkVersion is not None) and (checkVersion == current):
+        if (checkVersion is not None) and (checkVersion == currentVersion):
             if verbose > 0:
                 print_log_messages('measures_update: requested version already installed in %s' % path, logger, verbose=verbose)
             # update the age of the readme to now
@@ -235,7 +244,7 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
             msgs = []
             msgs.append("Error: the Observatories table was not found as expected in %s" % path)
             msgs.append("Either install casarundata first or set use_astron_obs_table and force to be True when using measures_update.")
-            msgs.append("Note that the Observatories table provided in the Astron measures tarfile is not the same as that maintained by CASA")
+            msgs.append("Note that the Observatories table provided in the measures tarfile is not the same as that maintained by CASA")
             print_log_messages(msgs, logger, True)
             return
         
@@ -258,21 +267,21 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
         
         if not do_update:
             # recheck the readme file, another update may have already happened before the lock was obtained
-            current = None
+            currentVersion = None
             ageRecent = False
             
             readmeInfo = get_data_info(path, logger, type='measures')
             if readmeInfo is not None:
-                current = readmeInfo['version']
+                currentVersion = readmeInfo['version']
                 if readmeInfo['age'] is not None:
                     ageRecent = readmeInfo['age'] < 1.0
 
-            if (version is not None) and (version == current):
+            if (version is not None) and (version == currentVersion):
                 # no update will be done, version is as requested - always verbose here because the lock is in use
-                print_log_messages('The requested measures version is already installed in %s, using version %s' % (path, current), logger)
+                print_log_messages('The requested measures version is already installed in %s, using version %s' % (path, currentVersion), logger)
             elif (version is None) and ageRecent:
                 # no update will be done, it's already been checked or updated recently - always verbose here because the lock is in use
-                print_log_messages('The latest measures version was checked recently in %s, using version %s' % (path, current), logger)
+                print_log_messages('The latest measures version was checked recently in %s, using version %s' % (path, currentVersion), logger)
             else:
                 # final check for problems before updating
                 if not force and readmeInfo is not None and (version=='invalid' or version=='unknown'):
@@ -289,20 +298,22 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
             if force:
                 print_log_messages('A measures update has been requested by the force argument', logger)
 
-            print_log_messages('  ... finding available measures at www.astron.nl ...', logger)
+            print_log_messages('  ... finding available measures ...', logger)
 
-            files = measures_available()
+            files = measures_available(measures_site=measures_site)
+            site = files[0]
+            files = files[1:]
 
             # target filename to download
             # for the non-force unspecified version case this can only get here if the age is > 1 day so there should be a newer version
             # but that isn't checked - this could install a version that's already installed
             target = files[-1] if version is None else version
             if target not in files:
-                print_log_messages("measures_update can't find specified version %s" % target, logger, True)
+                print_log_messages("measures_update can't find specified version %s at site %s" % (site,target), logger, True)
 
             else:
                 # there are files to extract
-                print_log_messages('  ... downloading %s from ASTRON server to %s ...' % (target, path), logger)
+                print_log_messages('  ... downloading %s from %s to %s ...' % (target, site, path), logger)
 
                 # it's at this point that this code starts modifying what's there so the lock file should
                 # not be removed on failure from here on (until it succeeds)
@@ -328,14 +339,12 @@ def measures_update(path=None, version=None, force=False, logger=None, auto_upda
                         member = None
                     return member
 
-                astronURL = 'https://www.astron.nl/iers'
-                
-                # untar the target at astronURL to path using the custom filter, do not be verbose
-                do_untar_url(astronURL, target, path, custom_filter)
+                # untar the target at site to path using the custom filter, do not be verbose
+                do_untar_url(site, target, path, custom_filter)
 
                 # create a new readme.txt file
                 with open(readme_path,'w') as fid:
-                    fid.write("# measures data populated by casaconfig\nversion : %s\ndate : %s" % (target, datetime.today().strftime('%Y-%m-%d')))
+                    fid.write("# measures data populated by casaconfig\nsite : %s\nversion : %s\ndate : %s" % (site, target, datetime.today().strftime('%Y-%m-%d')))
 
                 clean_lock = True
                 print_log_messages('  ... measures data updated at %s' % path, logger)
