@@ -38,10 +38,11 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     and nothing is updated. Release version information is only available in
     monolithic CASA installations.
 
-    If a specific version is not requested (the default) and a check for the
-    versions available for installation at path has been done within the past
-    24 hours then this function does nothing even if there is a more
-    recent version available from the CASA server unless force is True.
+    If a specific version is not requested (the default) and it has been less
+    than data_update_interval (a config value) days since the last check for a 
+    more recent version then this function does nothing even if there is a more
+    recent version available from the CASA server. Using force=True forces a check
+    for a more recent version, ignoring the days since the last check.
 
     If force is True then the requested version (or the latest version available
     now) is installed even if that version is already installed or a check for the
@@ -127,8 +128,9 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     from .get_data_lock import get_data_lock
     from .do_pull_data import do_pull_data
 
+    from .. import config as _config
+
     if path is None:
-        from .. import config as _config
         path = _config.measurespath
 
     if path is None:
@@ -136,7 +138,6 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
         return
 
     if verbose is None:
-        from .. import config as _config
         verbose = _config.casaconfig_verbose
 
     # when a specific version is requested then the measures readme.txt that is part of that version
@@ -190,7 +191,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     currentDate = dataReadmeInfo['date']
     installed_files = dataReadmeInfo['manifest']
     if dataReadmeInfo['age'] is not None:
-        ageRecent = dataReadmeInfo['age'] < 1.0
+        ageRecent = dataReadmeInfo['age'] < _config.data_update_interval
 
     if currentVersion == 'unknown':
         msgs = []
@@ -283,7 +284,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
             currentVersion = dataReadmeInfo['version']
             currentDate = dataReadmeInfo['date']
             installedFiles = dataReadmeInfo['manifest']
-            ageRecent = dataReadmeInfo['age'] < 1.0
+            ageRecent = dataReadmeInfo['age'] < _config.data_update_interval
             if ((currentVersion == requestedVersion) and (not force)):
                 if expectedMeasuresVersion is not None:
                     # this is a 'release' update request, need to check that the measures version is also now OK

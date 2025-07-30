@@ -44,12 +44,14 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     nothing unless force is True.
 
     If a specific version is not requested (the default) and the modification time of that text
-    file is less than 24 hrs before now then this function does nothing unless force is True. When this
-    function checks for a more recent version and finds that the installed version is the most recent
-    then the modification time of that text file is changed to the current time even though nothing has
-    changed in path. This limits the number of attempts to update the measures data (including checking
-    for more recent data) to once per day. When the force argument is True and a specific version is
-    not requested then this function always checks for the latest version.
+    file is less than measures_update_interval (a config value) days before now then this function 
+    does nothing unless force is True. When this function checks for a more recent version and finds 
+    that the installed version is the most recent then the modification time of that text file 
+    is changed to the current time even though nothing has changed in path. This limits the 
+    number of attempts to update the measures data (including checking
+    for more recent data) to once every measures_update_interval days. When the force argument 
+    is True and a specific version is not requested then this function always checks for the 
+    latest version.
 
     When auto_update_rules is True then path must exist and contain the expected readme.txt file.
     Path must be owned by the user, force must be False, and the version must be None. This 
@@ -144,20 +146,19 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     from .get_data_info import get_data_info
     from .measures_available import measures_available
     from .do_untar_url import do_untar_url
-    
+
+    from .. import config as _config
+
     if path is None:
-        from .. import config as _config
         path = _config.measurespath
 
     if path is None:
         raise UnsetMeasurespath('measures_update: path is None and has not been set in config.measurespath. Provide a valid path and retry.')
 
     if measures_site is None:
-        from .. import config as _config
         measures_site = _config.measures_site
 
     if verbose is None:
-        from .. import config as _config
         verbose = _config.casaconfig_verbose
 
     path = os.path.expanduser(path)
@@ -188,7 +189,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
         currentVersion = readmeInfo['version']
         currentSite = readmeInfo['site']
         if readmeInfo['age'] is not None:
-            ageRecent = readmeInfo['age'] < 1.0
+            ageRecent = readmeInfo['age'] < _config.measures_update_interval
 
     if not force:
         # don't check for new version if the age is less than 1 day
@@ -279,7 +280,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
             if readmeInfo is not None:
                 currentVersion = readmeInfo['version']
                 if readmeInfo['age'] is not None:
-                    ageRecent = readmeInfo['age'] < 1.0
+                    ageRecent = readmeInfo['age'] < _config.measures_update_interval
 
             if (version is not None) and (version == currentVersion):
                 # no update will be done, version is as requested - always verbose here because the lock is in use
