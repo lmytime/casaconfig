@@ -36,7 +36,7 @@ def get_data_info(path=None, logger=None, type=None):
     For 'casarundata' an additional field of 'manifest' is present which is
     the list of files that have been installed for that specific version (this will
     be empty for an unknown or invalid version). The measures dictionary also contains
-    a 'site' filed which holds the URL of the site that supplied that version. For
+    a 'site' field which holds the URL of the site that supplied that version. For
     older readme files that lack any site infromation the site is assumed to be 
     the astron site.
 

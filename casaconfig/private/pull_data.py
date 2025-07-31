@@ -22,6 +22,7 @@ def pull_data(path=None, version=None, force=False, logger=None, verbose=None):
     The verbose argument controls the level of information provided when this function when the data
     are unchanged for expected reasons. A level of 0 prints and logs nothing. A
     value of 1 logs the information and a value of 2 logs and prints the information.
+    Error messages are always logged and printed.
 
     The path must either contain a previously installed version of casarundata
     or it must not exist or be empty.
@@ -113,13 +114,17 @@ def pull_data(path=None, version=None, force=False, logger=None, verbose=None):
     from .get_data_lock import get_data_lock
     from .do_pull_data import do_pull_data
 
+    from .. import config as _config
+
     if path is None:
-        from .. import config as _config
         path = _config.measurespath
 
     if path is None:
         raise UnsetMeasurespath('path is None and has not been set in config.measurespath. Provide a valid path and retry.')
 
+    if verbose is None:
+        verbose = _config.casaconfig_verbose
+        
     # when a specific version is requested then the measures readme.txt that is part of that version
     # will get a timestamp of now so that default measures updates won't happen for a day unless the
     # force argument is used for measures_update
@@ -223,7 +228,7 @@ def pull_data(path=None, version=None, force=False, logger=None, verbose=None):
     lock_fd = None
     clean_lock = True  # set to False if the contents are actively being update and the lock file should not be cleaned on exception
     try:
-        print_log_messages('pull_data using version %s, acquiring the lock ... ' % version, logger)
+        print_log_messages('pull_data using version %s, acquiring the lock ... ' % version, logger, verbose=verbose)
 
         # attempting to get the lock will raise NoNetwork if there is no network and the lock will not be set, catch and reemit that in this try block
         lock_fd = get_data_lock(path, 'pull_data')
@@ -248,13 +253,13 @@ def pull_data(path=None, version=None, force=False, logger=None, verbose=None):
                             if measuresVersion == expectedMeasuresVersion:
                                 # no pull is necessary
                                 do_pull = False
-                                print_log_messages('pull_data requested "release" versions of casarundata and measures are already installed.', logger)
+                                print_log_messages('pull_data requested "release" versions of casarundata and measures are already installed.', logger, verbose=verbose)
                             # otherwise this is a release pull and even if the measuresVersion is 'unknown' or 'invalid' we should proceed with a pull at this point
                             # problems with casarundata path will have been caught before
                     else:
                         # nothing to do here, already at the expected casarundata version and a pull is not being forced and this is not a release pull
                         do_pull = False
-                        print_log_messages('pull_data requested version is already installed.', logger)
+                        print_log_messages('pull_data requested version is already installed.', logger, verbose=verbose)
 
                 # a version of 'invalid', 'error', or 'unknown' is a surprise here, likely caused by something else doing something
                 # incompatible with this attempt
@@ -274,7 +279,7 @@ def pull_data(path=None, version=None, force=False, logger=None, verbose=None):
         if do_pull:
             # do not clean the lock file contents at this point unless do_pull_data returns normally
             clean_lock = False
-            do_pull_data(path, version, installed_files, currentVersion, currentDate, logger)
+            do_pull_data(path, version, installed_files, currentVersion, currentDate, logger, verbose)
             clean_lock = True
             if namedVersion:
                 # a specific version has been requested, set the times on the measures readme.txt to now to avoid

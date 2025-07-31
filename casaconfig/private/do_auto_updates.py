@@ -17,8 +17,8 @@ this module will be included in the api
 
 def do_auto_updates(configDict, logger=None, verbose=None):
     """
-    Use measurespath, data_auto_update, and measures_auto_update from configDict to
-    do any auto updates as necessary.
+    Use measurespath, data_auto_update, measures_auto_update, and measures_site, 
+    from configDict to do any auto updates as necessary.
 
     This is intended for use during casatools init but may be useful in other cases.
 
@@ -36,6 +36,7 @@ def do_auto_updates(configDict, logger=None, verbose=None):
     The verbose argument controls the level of information provided when this function when the data
     are unchanged for expected reasons. A level of 0 prints and logs nothing. A
     value of 1 logs the information and a value of 2 logs and prints the information.
+    Error messages are always printed and logged (when a logger is provided).
 
     See data_update and measures_update for additional details about exceptions
 
@@ -72,6 +73,6 @@ def do_auto_updates(configDict, logger=None, verbose=None):
             if configDict.data_auto_update:
                 data_update(configDict.measurespath, logger=logger, auto_update_rules=True, verbose=verbose)
             if configDict.data_auto_update or configDict.measures_auto_update:
-                measures_update(configDict.measurespath, logger=logger, auto_update_rules=True, verbose=verbose)
+                measures_update(configDict.measurespath, measures_site=configDict.measures_site, logger=logger, auto_update_rules=True, verbose=verbose)
 
     return

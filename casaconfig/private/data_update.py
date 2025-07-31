@@ -23,6 +23,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     The verbose argument controls the level of information provided when this function when the data
     are unchanged for expected reasons. A level of 0 prints and logs nothing. A
     value of 1 logs the information and a value of 2 logs and prints the information.
+    Error messages are always printed and logged (when a logger is provided).
 
     The path must contain a previously installed version of casarundata.
     Use pull_data to install casarundata into a new path (empty or does not exist).
@@ -207,8 +208,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
 
     if version is None and force is False and ageRecent:
         # if version is None, the readme is less than 1 day old  and force is False then return without checking for any newer versions
-        if verbose > 0:
-            print_log_messages('data_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
+        print_log_messages('data_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
         # no lock has been set yet, safe to simply return here
         return
 
@@ -232,7 +232,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
         expectedMeasuresVersion = releaseInfo['measures']
 
     if requestedVersion not in available_data:
-        print_log_messages('Requested casarundata version %s was not found. See available_data for a list of available casarundata versions.' % requestedVersion)
+        print_log_messages('Requested casarundata version %s was not found. See available_data for a list of available casarundata versions.' % requestedVersion, logger, True)
         # no lock has been set yet, safe to simply return here
         return
 
@@ -249,20 +249,17 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
                     force = False
                 # if measuresReadmeInfo is None then that's a problem and force remains True, this also catches 'invalid' and 'unknown' measures versions, which should not happen here
             if not force:
-                if verbose > 0:
-                    print_log_messages('data_update: requested "release" version of casarundata and measures are already installed.', logger, verbose=verbose)
+                print_log_messages('data_update: requested "release" version of casarundata and measures are already installed.', logger, verbose=verbose)
                 # no lock has been set yet, safe to simply return here
                 return
         else:
             # normal usage, ok to return now
             if latestVersion:
-                if verbose > 0:
-                    print_log_messages('The latest version is already installed in %s' % path, logger, verbose=verbose)
+                print_log_messages('The latest version is already installed in %s' % path, logger, verbose=verbose)
                 # touch the dates of the readme to prevent a future check on available data for the next 24 hours
                 os.utime(readme_path)
             else:
-                if verbose > 0:
-                    print_log_messages('Requested casarundata version is already installed in %s, %s' % (path, currentVersion), logger, verbose=verbose)
+                print_log_messages('Requested casarundata version is already installed in %s, %s' % (path, currentVersion), logger, verbose=verbose)
 
             # no lock has been set yet, safe to simply return here
             return
@@ -272,7 +269,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     lock_fd = None
     clean_lock = True   # set to False if the contents are actively being update and the lock file should not be cleaned on exception
     try:
-        print_log_messages('data_update using version %s, acquiring the lock ... ' % requestedVersion, logger)
+        print_log_messages('data_update using version %s, acquiring the lock ... ' % requestedVersion, logger, verbose=verbose)
 
         lock_fd = get_data_lock(path, 'data_update')
         # the BadLock exception that may happen here is caught below
@@ -295,18 +292,15 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
                             do_update = False
                     # if measuresReadmeInfo is None there was a problem which requires a full update so do_update remains True
                     if not do_update:
-                        # always verbose here because the lock file is in use
-                        print_log_messages('data update requested "release" version of casarundata and measures are already installed.', logger)
+                        print_log_messages('data update requested "release" version of casarundata and measures are already installed.', logger, verbose=verbose)
                 else:
                     # nothing to do here, already at the expected version and an update is not being forced
                     if latestVersion:
-                        # always verbose here because the lock file is in use
-                        print_log_messages('The latest version is already installed, using version %s' % currentVersion, logger)
+                        print_log_messages('The latest version is already installed, using version %s' % currentVersion, logger, verbose=verbose)
                         # touch the dates of the readme to prevent a future check on available data for the next 24 hours
                         os.utime(readme_path)
                     else:
-                        # always verbose here because the lock file is in use
-                        print_log_messages('requested version is already installed.', logger)
+                        print_log_messages('requested version is already installed.', logger, verbose=verbose)
                     do_update = False
 
             if do_update:
@@ -321,7 +315,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
         if do_update:
             # do not clean the lock file contents at this point unless do_pull_data returns normally
             clean_lock = False
-            do_pull_data(path, requestedVersion, installed_files, currentVersion, currentDate, logger)
+            do_pull_data(path, requestedVersion, installed_files, currentVersion, currentDate, logger, verbose)
             clean_lock = True
             if namedVersion:
                 # a specific version has been requested, set the times on the measures readme.txt to now to avoid

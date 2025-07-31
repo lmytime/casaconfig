@@ -87,7 +87,8 @@ def update_all(path=None, logger=None, force=False, verbose=None):
         msgs = []
         msgs.append("Warning: path must exist as a directory and it must be owned by the user, path = %s" % path)
         msgs.append("Warning: no updates are possible on this path by this user.")
-        print_log_messages(msgs, logger, False)
+        # always print and log this although it's only a warning
+        print_log_messages(msgs, logger, False, 2)
         return
 
     # if path is empty, first use pull_data
@@ -95,7 +96,7 @@ def update_all(path=None, logger=None, force=False, verbose=None):
         pull_data(path, logger, verbose=verbose)
         # double check that it's not empty
         if len(os.listdir(path))==0:
-            print_log_messages("pull_data failed, see the error messages for more details. update_all can not continue")
+            print_log_messages("pull_data failed, see the error messages for more details. update_all can not continue", logger, True)
             return
 
     # readme.txt must exist in path at this point, using get_data_info provides more possible feedback
@@ -105,15 +106,15 @@ def update_all(path=None, logger=None, force=False, verbose=None):
         print_log_messages('could not find any data information about %s, can not continue with update_all' % path, logger, True)
 
     if dataInfo['casarundata'] is None:
-        print_log_messages('readme.txt not found at path, update_all can not continue, path = %s' % path, logger)
+        print_log_messages('readme.txt not found at path, update_all can not continue, path = %s' % path, logger, True)
         return
 
     if dataInfo['casarundata'] == 'invalid':
-        print_log_messages('readme.txt is invalid at path, update_all can not continue, path = %s' % path, logger)
+        print_log_messages('readme.txt is invalid at path, update_all can not continue, path = %s' % path, logger, True)
         return
 
     if dataInfo['casarundata'] == 'unknown':
-        print_log_messages('contents at path appear to be casarundata but no readme.txt was found, casaconfig did not populate this data and update_all can not continue, path = %s', path, logger)
+        print_log_messages('contents at path appear to be casarundata but no readme.txt was found, casaconfig did not populate this data and update_all can not continue, path = %s', path, logger, True)
         return
 
     # the updates should work now

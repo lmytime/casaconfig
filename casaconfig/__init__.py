@@ -15,5 +15,8 @@ from .private.get_data_info import get_data_info
 from .private.CasaconfigErrors import *
 
 def version():
+  """
+  return the casaconfig version string
+  """
   import importlib.metadata
   return importlib.metadata.version(__name__)

@@ -22,30 +22,30 @@ def measures_available(measures_site=None, logger=None):
     Return a list of available measures versions at measures_site.
 
     This returns a list of the measures versions available at measures_site.
-    If measures_site is None, then the config value of measures_site is used.
+    If measures_site is None, then the meausres_site config value is used.
 
-    The list of available measures is sorted so that the most recent file
-    appears at the end of the list.
+    The list of available measures is sorted using the date and time fields of
+    the file name so that the most recent file appears at the end of the list.
 
-    The measures_site may be a single string value or a list of strings.
+    The measures_site may be a single string value or a list of strings where
+    each element is a URL where measures tar files are found.
+
     If measures_site is a list then the elements are used in order until
     an appropriate list of available measures is found (see more below). 
     If measures_site is not provide then the measures_site config value 
     is used.
 
-    The version parameter of measures_update must be one of the values in 
-    the list returned by measures_available when set. If that parameter is
-    not set in measures_update then the last element (the most 
-    recent tar file) of that returned list is used.
+    The first element of the returned list is always the measures site URL
+    used to populate the list.
 
-    The config value of measures_site_interval is used when determining which
+    The measures_site_interval config value may be used when determining which
     site to use if measures_site is a list. When stepping through all the
     elements of measures_site, if the most recent measures tar file at that 
-    site has a date that is not older than measuers_site_interval days before
-    the current date then that list of measures tar files from that site
-    is returned. If all of the list of measures tar files are older than
-    measures_site_interval days before the current date then the list
-    with the most recent tar file is returned. 
+    site has a date that is less than or equal to measures_site_interval 
+    days before the current date then that list of measures tar files from 
+    that site is returned. If none of the sites satisfy that criteria for 
+    the most recent file then the list having the most recent tar file is 
+    returned. 
 
     If the returned list is older than measures_site_interval days before
     the current date then a warning is logged and printed following the
@@ -53,26 +53,26 @@ def measures_available(measures_site=None, logger=None):
 
     When comparing the date of the most recent tar file with that of
     the current date, the date value (excluding the time) found in the
-    tar file name is compared as is with the current date of the
-    casaconfig user without any correction for time zone differences.
-    This is an approximate age of the most recent tar file and is 
-    primiarly intended to identify a site that may not be updating
-    regularly (daily) as expected so that casaconfig can use another
-    in the list of measures_site automatically. 
-
-    The first element of the returned list is the measures_site where
-    the list was found (the single string value used to assemble that 
-    list).
+    tar file name is compared with the current date without any correction 
+    for time zone differences. This is an approximate age of the most recent 
+    tar file and is primiarly intended to identify a site that may not be 
+    updating regularly (daily) as expected so that casaconfig can use another
+    in the list of measures_site automatically.
 
     The list of available measures versions is the list of files at 
-    measures_site that follow the pattern of WSRT_Measures*tar*, excluding
-    files that end in ".md5".
+    measures_site that follow the pattern of *Measures*YYYYMMDD-HHMMSS*tar*, 
+    excluding files that end in ".md5".
+
+    Note that the version parameter in measures_update must be an element in
+    a list returned by measures_available so that measures_update can find
+    the expected version. Note that measures tar file names will usually
+    not be the same at different sites.
 
     The site used is always logged when a logger is provided.
 
     Parameters
-       - measures_site(str or list of str = None) - Each value is a URL where measures tar files are found. If measures_site is a list then the elements are used in order until a list can be assembled.
-       - logger (casatools.logsink=None) - Instance of the casalogger to use for writing messages. Default None writes messages to the terminal. The value of config.casaconfig_verbose is used. The logger is only used if the last file in the returned list is more than config.measures_site_interval days than the current date.
+       - measures_site(str or list of str = None) - Each value is a URL where measures tar files are found. If measures_site is a list then the elements are used in order until a list can be assembled. Default None uses config.measures_site.
+       - logger (casatools.logsink=None) - Instance of the casalogger to use for writing messages. Default None writes messages to the terminal. The value of config.casaconfig_verbose is used. The logger is only used if the last file in the returned list is more than config.measures_site_interval days before the current date.
 
     Returns
        list - version names returned as list of strings, the first element of this list is the is the site used. The file names are sorted by date and time as found in the name with the most recent name appearing at the end of the list.

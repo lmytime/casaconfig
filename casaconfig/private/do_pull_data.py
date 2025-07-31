@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-def do_pull_data(path, version, installed_files, currentVersion, currentDate, logger):
+def do_pull_data(path, version, installed_files, currentVersion, currentDate, logger, verbose):
     """
     Pull the casarundata for the given version and install it in path, removing
     the installed files and updating the readme.txt file when done.
@@ -30,6 +30,7 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
        - currentVersion (str) - from the readme file if it already exists, or an empty string if there is no previously installed version.
        - currentDate (str) - from the readme file if it already exists, or an empty string if there is no previously installed version.
        - logger (casatools.logsink) - Instance of the casalogger to use for writing messages. Messages are always written to the terminal. Set to None to skip writing messages to a logger.
+       - verbose (int) - Level of output, 0 is none, 1 is to logger, 2 is to logger and terminal.
 
     Returns
        None
@@ -49,7 +50,7 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
         # remove the previously installed files
         # remove this readme file so it's not confusing if something goes wrong after this
         os.remove(readme_path)
-        print_log_messages('Removing files using manifest from previous install of %s on %s' % (currentVersion, currentDate), logger)
+        print_log_messages('Removing files using manifest from previous install of %s on %s' % (currentVersion, currentDate), logger, verbose=verbose)
         for relpath in installed_files:
             filepath = os.path.join(path,relpath)
             # don't say anything if filepath isn't found, remove it if it is found
@@ -112,4 +113,4 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
         for f in installed_files:
             fid.write("\n%s" % f)
 
-    print_log_messages('casarundata installed %s at %s' % (version, path), logger)
+    print_log_messages('casarundata installed %s at %s' % (version, path), logger, verbose=verbose)

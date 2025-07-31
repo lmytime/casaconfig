@@ -37,7 +37,7 @@ def do_untar_url(dataURL, tarfile_name, path, extraction_filter=None, verbose_st
     tarfile_name is added on to it, can be used as the full path to the
     tarfile.
 
-    This routine is for internal use and is used by measures_updpate
+    This routine is for internal use and is used by measures_update
     and do_pull_data.
 
     Parameters

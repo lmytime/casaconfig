@@ -19,7 +19,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     """
     Update or install the IERS data used for measures calculations from measures_site into path.
     
-    Original data source used by ASTRON is here: https://www.iers.org/IERS/EN/DataProducts/data.html
+    Original data source used by the measures sites is here: https://www.iers.org/IERS/EN/DataProducts/data.html
 
     If no update is necessary then this function will silently return.
 
@@ -27,7 +27,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     are unchanged for expected reasons. A level of 0 outputs nothing. A
     value of 1 sends any output to the logger and a value of 2 logs and prints the information.
     The default value of the verbose argument is taken from the casaconfig_verbose config
-    value (defaults to 1).
+    value (defaults to 1). Error messages are always logged and printed.
 
     CASA maintains a separate Observatories table which is available in the casarundata
     collection through pull_data and data_update. The Observatories table found at measures_site
@@ -35,8 +35,8 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     by using this function. This behavior can be changed by setting force and use_astron_obs_table
     both to True (use_astron_obs_table is ignored when force is False).
 
-    A text file (readme.txt in the geodetic directory in path) records the measures version string
-    and the date when that version was installed in path.
+    A text file (readme.txt in the geodetic directory in path) records the measures version string,
+    the measures site that was used and the date when that version was installed in path.
 
     If path is None then config.measurespath is used.
 
@@ -44,7 +44,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     nothing unless force is True.
 
     If a specific version is not requested (the default) and the modification time of that text
-    file is less than measures_update_interval (a config value) days before now then this function 
+    file is less than the measures_update_interval config value (days) before now then this function 
     does nothing unless force is True. When this function checks for a more recent version and finds 
     that the installed version is the most recent then the modification time of that text file 
     is changed to the current time even though nothing has changed in path. This limits the 
@@ -52,6 +52,17 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     for more recent data) to once every measures_update_interval days. When the force argument 
     is True and a specific version is not requested then this function always checks for the 
     latest version.
+
+    The measures_site is a single URL or a list of URLs to use to find the measurs tar file
+    to use in the update. See measures_available for more details on how tht parameter
+    is used.
+
+    If a specific version is requested then that must match a file in the list returned
+    by measures_available. The version is usually unique at each measures_site and so care
+    may need to be taken when requesting a specific version that it's available at 
+    measures_site. If measures_site is a list and a specific version is requested then
+    measures_update will try and find that version in each measures_site in that list, using
+    the first site that has that version.
 
     When auto_update_rules is True then path must exist and contain the expected readme.txt file.
     Path must be owned by the user, force must be False, and the version must be None. This 
@@ -109,12 +120,13 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
     Parameters
        - path (str=None) - Folder path to place updated measures data. Must contain a valid geodetic/readme.txt. If not set then config.measurespath is used.
-       - version (str=None) - Version of measures data to retrieve (usually in the form of WSRT_Measures_yyyymmdd-160001.ztar, see measures_available()). Default None retrieves the latest.
+       - version (str=None) - Version of measures data to retrieve (usually in the form of WSRT_Measures_yyyymmdd-160001.ztar, see measures_available). Default None retrieves the latest.
        - force (bool=False) - If True, always re-download the measures data. Default False will not download measures data if updated within the past day unless the version parameter is specified and different from what was last downloaded.
+       - measures_site(str or list of str = None) - Each value is a URL where measures tar files are found. If measures_site is a list then the elements are used in order until a list can be assembled. Default None uses config.measures_site.
        - logger (casatools.logsink=None) - Instance of the casalogger to use for writing messages. Default None writes messages to the terminal
        - auto_update_rules (bool=False) - If True then the user must be the owner of path, version must be None, and force must be False.
        - use_astron_obs_table (bool=False) - If True and force is also True then keep the Observatories table found in the Measures tar tarball (possibly overwriting the Observatories table from casarundata).
-       - verbose (int=None) - Level of output, 0 is none, 1 is to logger, 2 is to logger and terminal, defaults to casaconfig_verbose in config dictionary.
+       - verbose (int=None) - Level of output, 0 is none, 1 is to logger, 2 is to logger and terminal, defaults to config.casaconfig_verbose.
         
     Returns
        None
@@ -194,9 +206,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     if not force:
         # don't check for new version if the age is less than 1 day
         if version is None and ageRecent:
-            if verbose > 0:
-                print_log_messages('measures_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
-            return
+            print_log_messages('measures_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
         
         # don't overwrite something that looks bad unless forced to do so
         if 'invalid' in currentVersion:
@@ -212,7 +222,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
         # don't overwrite something that looks like valid measures data unless forced to do so
         if 'unknown' in currentVersion:
-            print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger)
+            print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger, True)
             return
 
         checkVersion = version
@@ -235,8 +245,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
         # don't re-download the same data
         if (checkVersion is not None) and (checkVersion == currentVersion):
-            if verbose > 0:
-                print_log_messages('measures_update: requested version already installed in %s' % path, logger, verbose=verbose)
+            print_log_messages('measures_update: requested version already installed in %s' % path, logger, verbose=verbose)
             # update the age of the readme to now
             readme_path = os.path.join(path,'geodetic/readme.txt')
             # readme_path should already exist if it's here
@@ -264,7 +273,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     lock_fd = None
     clean_lock = True    # set to false if the contents are actively being update and the lock file should not be cleaned one exception
     try:
-        print_log_messages('measures_update ... acquiring the lock ... ', logger)
+        print_log_messages('measures_update ... acquiring the lock ... ', logger, verbose=verbose)
 
         # the BadLock exception that may happen here is caught below
         lock_fd = get_data_lock(path, 'measures_update')
@@ -283,11 +292,9 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
                     ageRecent = readmeInfo['age'] < _config.measures_update_interval
 
             if (version is not None) and (version == currentVersion):
-                # no update will be done, version is as requested - always verbose here because the lock is in use
-                print_log_messages('The requested measures version is already installed in %s, using version %s' % (path, currentVersion), logger)
+                print_log_messages('The requested measures version is already installed in %s, using version %s' % (path, currentVersion), logger, verbose=verbose)
             elif (version is None) and ageRecent:
-                # no update will be done, it's already been checked or updated recently - always verbose here because the lock is in use
-                print_log_messages('The latest measures version was checked recently in %s, using version %s' % (path, currentVersion), logger)
+                print_log_messages('The latest measures version was checked recently in %s, using version %s' % (path, currentVersion), logger, verbose=verbose)
             else:
                 # final check for problems before updating
                 if not force and readmeInfo is not None and (version=='invalid' or version=='unknown'):
@@ -302,9 +309,9 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
         if do_update:
             if force:
-                print_log_messages('A measures update has been requested by the force argument', logger)
+                print_log_messages('A measures update has been requested by the force argument', logger, verbose=verbose)
 
-            print_log_messages('  ... finding available measures ...', logger)
+            print_log_messages('  ... finding available measures ...', logger, verbose=verbose)
 
             target = None
             site = None
@@ -345,7 +352,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
             if site is not None:
                 # there are files to extract
-                print_log_messages('  ... downloading %s from %s to %s ...' % (target, site, path), logger)
+                print_log_messages('  ... downloading %s from %s to %s ...' % (target, site, path), logger, verbose=verbose)
 
                 # it's at this point that this code starts modifying what's there so the lock file should
                 # not be removed on failure from here on (until it succeeds)
@@ -379,7 +386,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
                     fid.write("# measures data populated by casaconfig\nsite : %s\nversion : %s\ndate : %s" % (site, target, datetime.today().strftime('%Y-%m-%d')))
 
                 clean_lock = True
-                print_log_messages('  ... measures data updated at %s' % path, logger)
+                print_log_messages('  ... measures data updated at %s' % path, logger, verbose=verbose)
 
             # closing out the do_update
 
