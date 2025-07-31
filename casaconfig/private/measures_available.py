@@ -48,8 +48,8 @@ def measures_available(measures_site=None, logger=None):
     returned. 
 
     If the returned list is older than measures_site_interval days before
-    the current date then a warning is logged and printed following the
-    the standard meaning of the casaconfig_verbose config value.
+    the current date then a warning is logged and printed as determind
+    by the casaconfig_verbose config value.
 
     When comparing the date of the most recent tar file with that of
     the current date, the date value (excluding the time) found in the
@@ -61,14 +61,13 @@ def measures_available(measures_site=None, logger=None):
 
     The list of available measures versions is the list of files at 
     measures_site that follow the pattern of *Measures*YYYYMMDD-HHMMSS*tar*, 
-    excluding files that end in ".md5".
+    excluding files that end in ".md5", where YYYYMMDD and HHMMSS are each 
+    single digits (0 through 9).
 
     Note that the version parameter in measures_update must be an element in
     a list returned by measures_available so that measures_update can find
     the expected version. Note that measures tar file names will usually
     not be the same at different sites.
-
-    The site used is always logged when a logger is provided.
 
     Parameters
        - measures_site(str or list of str = None) - Each value is a URL where measures tar files are found. If measures_site is a list then the elements are used in order until a list can be assembled. Default None uses config.measures_site.

@@ -19,7 +19,8 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     """
     Update or install the IERS data used for measures calculations from measures_site into path.
     
-    Original data source used by the measures sites is here: https://www.iers.org/IERS/EN/DataProducts/data.html
+    Original IERS data source used by each of the recommended measures sites
+    is here: https://www.iers.org/IERS/EN/DataProducts/data.html
 
     If no update is necessary then this function will silently return.
 
@@ -46,20 +47,20 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     If a specific version is not requested (the default) and the modification time of that text
     file is less than the measures_update_interval config value (days) before now then this function 
     does nothing unless force is True. When this function checks for a more recent version and finds 
-    that the installed version is the most recent then the modification time of that text file 
+    that the installed version is the most recent one then the modification time of that text file 
     is changed to the current time even though nothing has changed in path. This limits the 
     number of attempts to update the measures data (including checking
     for more recent data) to once every measures_update_interval days. When the force argument 
     is True and a specific version is not requested then this function always checks for the 
     latest version.
 
-    The measures_site is a single URL or a list of URLs to use to find the measurs tar file
-    to use in the update. See measures_available for more details on how tht parameter
+    The measures_site is a single URL or a list of URLs to use to find the measures tar file
+    to use in the update. See measures_available for more details on how that parameter
     is used.
 
     If a specific version is requested then that must match a file in the list returned
     by measures_available. The version is usually unique at each measures_site and so care
-    may need to be taken when requesting a specific version that it's available at 
+    may need to be taken when requesting a specific version to ensure that it's available at 
     measures_site. If measures_site is a list and a specific version is requested then
     measures_update will try and find that version in each measures_site in that list, using
     the first site that has that version.

@@ -17,7 +17,7 @@ this module will be included in the api
 
 def do_auto_updates(configDict, logger=None, verbose=None):
     """
-    Use measurespath, data_auto_update, measures_auto_update, and measures_site, 
+    Use measurespath, data_auto_update, measures_auto_update, and measures_site
     from configDict to do any auto updates as necessary.
 
     This is intended for use during casatools init but may be useful in other cases.
