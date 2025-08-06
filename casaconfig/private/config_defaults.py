@@ -46,7 +46,7 @@ def _globals( ):
     return globals()
 
 __exec_code = None
-with open(_os.path.join(_os.path.dirname(__file__),'config_defaults_static.py')) as f:
-    __exec_code = f.read( )
+with open(_os.path.join(_os.path.dirname(__file__),'config_defaults_static.py')) as __conf_defs_static_f:
+    __exec_code = __conf_defs_static_f.read( )
 exec( __exec_code, globals( ) )
 

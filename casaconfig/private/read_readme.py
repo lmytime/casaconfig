@@ -82,7 +82,7 @@ def read_readme(path):
                     key = splitLine[0].strip()
                     if key == 'site':
                         # the URL likely also has a ":" so rejoin the second part and then strip that
-                        siteURL = "".join(splitLine[1:])
+                        siteURL = ":".join(splitLine[1:])
                         site = siteURL.strip()
                     elif key == 'version':
                         version = splitLine[1].strip()

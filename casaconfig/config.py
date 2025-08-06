@@ -47,19 +47,19 @@ def _standard_config_path( ):
                                   '/home/casa/casasiteconfig.py' ]
 
     if 'CASASITECONFIG' in __os.environ:
-        f = __os.environ.get('CASASITECONFIG')
+        __f = __os.environ.get('CASASITECONFIG')
         # if set, it must be a fully qualified file (leading '/') that exists
-        if f.find('/')==0 and __os.path.isfile(f):
-            return [ f ]
+        if __f.find('/')==0 and __os.path.isfile(__f):
+            return [ __f ]
         else:
             global __errors_encountered
-            __errors_encountered[f] = f'CASASITECONFIG environment variable set to a path ({f}) which does not exist or is not fully qualified.'
-            print( f'Warning: {__errors_encountered[f]}', file=__sys.stderr )
+            __errors_encountered[__f] = f'CASASITECONFIG environment variable set to a path ({__f}) which does not exist or is not fully qualified.'
+            print(f'Warning: {__errors_encountered[__f]}', file=__sys.stderr )
             return [ ]
 
-    for f in standard_siteconfig_paths:
-        if __os.path.isfile(f):
-            return [ f ]
+    for __f in standard_siteconfig_paths:
+        if __os.path.isfile(__f):
+            return [ __f ]
     return [ 'casasiteconfig' ]
 
 ## list of config variables
@@ -91,8 +91,8 @@ with _io.all_redirected(to=__os.devnull) if _module_execution else _io.no_redire
                  try:
                      __orig = { k: _config_defaults._globals( )[k] for k in __defaults }
                      __exec_code = None
-                     with open(__f) as f:
-                         __exec_code = f.read()
+                     with open(__f) as __config_def_f:
+                         __exec_code = __config_def_f.read()
                      exec( __exec_code, __orig )
                  except Exception as e:
                      __errors_encountered[__f] = __traceback.format_exc( )
@@ -107,8 +107,8 @@ with _io.all_redirected(to=__os.devnull) if _module_execution else _io.no_redire
                 try:
                     __orig = {k: _config_defaults._globals()[k] for k in __defaults}
                     __exec_code = None
-                    with open(__spec.origin) as f:
-                        __exec_code = f.read()
+                    with open(__spec.origin) as __config_def_f:
+                        __exec_code = __config_def_f.read()
                     exec(__exec_code, __orig)
                 except Exception as e:
                     __errors_encountered[__spec.origin] = __traceback.format_exc()
@@ -155,8 +155,14 @@ for __v in __defaults:
                 pass
                 # debugging
                 # print("None value seen while expanding path-like fields for config parameter %s" % __v)
+
+# reload _config_defaults so that it contains the original, default, values
+import importlib
+importlib.reload(_config_defaults)
                 
 def load_success( ):
+    '''return the list of loaded config files'''
     return __loaded_config_files
 def load_failure( ):
+    '''return the list of errors encountered while loading config files'''
     return __errors_encountered

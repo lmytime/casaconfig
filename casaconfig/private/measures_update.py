@@ -52,7 +52,8 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
     number of attempts to update the measures data (including checking
     for more recent data) to once every measures_update_interval days. When the force argument 
     is True and a specific version is not requested then this function always checks for the 
-    latest version.
+    latest version. The measures_update_interval is always used as an int type (including
+    any truncation of the actual value in config if not an integer).
 
     The measures_site is a single URL or a list of URLs to use to find the measures tar file
     to use in the update. See measures_available for more details on how that parameter
@@ -202,29 +203,31 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
         currentVersion = readmeInfo['version']
         currentSite = readmeInfo['site']
         if readmeInfo['age'] is not None:
-            ageRecent = readmeInfo['age'] < _config.measures_update_interval
+            ageRecent = readmeInfo['age'] < int(_config.measures_update_interval)
 
     if not force:
-        # don't check for new version if the age is less than 1 day
+        # don't check for new version if the age is less than measures_update_interval days
         if version is None and ageRecent:
-            print_log_messages('measures_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
-        
-        # don't overwrite something that looks bad unless forced to do so
-        if 'invalid' in currentVersion:
-            raise NoReadme('measures_update: no measures readme.txt file found at %s. Nothing updated or checked.' % path)
-        
-        if 'error' in currentVersion:
-            msg = "measures_update: the measures readme.txt file at %s could not be read as expected, an update can not proceed unless force is True" % path
-            # add any additional error message, anything after the first ":" if is found
-            colonIndex = currentVersion.find(":")
-            if colonIndex != -1:
-                msg += "; " + currentVersion[colonIndex+1:]
-            raise BadReadme(msg)
-
-        # don't overwrite something that looks like valid measures data unless forced to do so
-        if 'unknown' in currentVersion:
-            print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger, True)
+            print_log_messages('measures_update: version installed or checked less than %s day(s) ago, nothing updated or checked' % int(_config.measures_update_interval), logger, verbose=verbose)
             return
+        
+        if currentVersion is not None:
+            # don't overwrite something that looks bad unless forced to do so
+            if 'invalid' in currentVersion:
+                raise NoReadme('measures_update: no measures readme.txt file found at %s. Nothing updated or checked.' % path)
+
+            if 'error' in currentVersion:
+                msg = "measures_update: the measures readme.txt file at %s could not be read as expected, an update can not proceed unless force is True" % path
+                # add any additional error message, anything after the first ":" if is found
+                colonIndex = currentVersion.find(":")
+                if colonIndex != -1:
+                    msg += "; " + currentVersion[colonIndex+1:]
+                raise BadReadme(msg)
+
+            # don't overwrite something that looks like valid measures data unless forced to do so
+            if 'unknown' in currentVersion:
+                print_log_messages('measures_update: the measures data at %s is not maintained by casaconfig and so it can not be updated unless force is True' % path, logger, True)
+                return
 
         checkVersion = version
         if checkVersion is None:
@@ -242,6 +245,9 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
                 raise exc                
             except:
                 # unsure what happened, leave it at none, which will trigger an update attempt, which might work
+                print("unexpected excption in measuress_available")
+                import traceback
+                traceback.print_exc()
                 pass
 
         # don't re-download the same data
@@ -290,7 +296,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
             if readmeInfo is not None:
                 currentVersion = readmeInfo['version']
                 if readmeInfo['age'] is not None:
-                    ageRecent = readmeInfo['age'] < _config.measures_update_interval
+                    ageRecent = readmeInfo['age'] < int(_config.measures_update_interval)
 
             if (version is not None) and (version == currentVersion):
                 print_log_messages('The requested measures version is already installed in %s, using version %s' % (path, currentVersion), logger, verbose=verbose)
@@ -409,6 +415,14 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
         msgs = [str(exc)]
         msgs.append('This should not happen unless multiple sessions are trying to update data at the same time and one experienced problems or was done out of sequence')
         msgs.append('Check for other updates in progress or choose a different path or clear out this path and reinstall the casarundata as well as the measures data')
+        print_log_messages(msgs, logger, True)
+        raise
+
+    except RemoteError as exc:
+        # probably an empty site
+        msgs = [str(exc)]
+        msgs.append('There was a remote error while attempting to update measures at %s' % path)
+        msgs.append('Check the value of measures_site and try again')
         print_log_messages(msgs, logger, True)
         raise
         

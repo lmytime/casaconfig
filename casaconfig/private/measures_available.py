@@ -121,50 +121,62 @@ def measures_available(measures_site=None, logger=None):
         # the last entry in file_list and file_list is the list of files at that
         # site
         file_age_list = []
-            
+
+        saved_exc = None
+        
         for this_site in measures_site:
             try:
-                saved_exc = None
                 # turn off the logger here so that only this initial call can produce a logged message warning
                 result = measures_available(this_site, logger=None)
-                if len(result) > 0:
+                if len(result) > 1:
                     siteAge = measuresFileAge(result[-1])
+                    # something useful can be returned, unset saved_exc
+                    saved_exc = None
                     if siteAge <= measures_site_interval:
                         return (result)
                     # the only way to get here is when the last file in result is more than measures_site_interval days from today
                     file_age_list.append((siteAge,result))
+            except RemoteError as exc:
+                # save it, if it's still set when the loop exits, reraise it, only the last exception is reraised
+                saved_exc = exc
             except NoNetwork as exc:
                 # reraise this, there's no recovering from it
                 raise exc
             except Exception as exc:
-                # save it, if it's still set when the loop exits, reraise it
+                # save it, if it's still set when the loop exits, reraise it, only the last exception is reraised
                 print("exception when trying : " + this_site)
                 print(str(exc))
                 print(str(type(exc)))
                 saved_exc = exc
 
+        # if it gets here, either none of the sites had any result to use or
+        # file_age_list has at least one entry
+        # of there was an exception
+        
+        if len(file_age_list) > 0:
+            # something can be returned
+            # return the one with the smallest age
+            thisAge = file_age_list[0][0]
+            result = file_age_list[0][1]
+            for age_tuple in file_age_list[1:]:
+                if age_tuple[0] < thisAge:
+                    thisAge = age_tuple[0]
+                    result = age_tuple[1]
+            # and log that that's what's going on, not an exception
+            msgs = []
+            msgs.append("Warning: the most recent measures tar file at each of the sites was older than config.measures_site_interval")
+            msgs.append("%s had the most recent measures tar file, returning that list" % result[0])
+            print_log_messages(msgs, logger, False, verbose)
+            return(result)
+
         if saved_exc is None:
-            if len(file_age_list) > 0:
-                # return the one with the smallest age
-                thisAge = file_age_list[0][0]
-                result = file_age_list[0][1]
-                for age_tuple in file_age_list[1:]:
-                    if age_tuple[0] < thisAge:
-                        thisAge = age_tuple[0]
-                        result = age_tuple[1]
-                # and log that that's what's going on, not an exception
-                msgs = []
-                msgs.append("Warning: the most recent measures tar file at each of the sites was older than config.measures_site_interval")
-                msgs.append("%s had the most recent measures tar file, returning that list" % result[0])
-                print_log_messages(msgs, logger, False, verbose)
-                return(result)
-            else:
-                # that's odd, probably measures_site was an empty list or no files were found at any of the sites
-                raise RemoteError("Unable to retrieve list of available measures versions, measures_site value may be an empty list or no files were found at any site, check and try again.")
+            # I don't think this is possible
+            raise RemoteError("Unable to retrieve list of available measures versions, measures_site value may be an empty list or no files were found at any site, check and try again.")
+
         else:
-            # saved exception
+            # saved exception, this is the most recent if multiple were raised, reraise it here
             # unsure what this should look like, need try to things out
-            raise saved_exc
+            raise saved_exc from None
 
     else:
         # make sure it's used as a string
@@ -181,6 +193,11 @@ def measures_available(measures_site=None, logger=None):
         
         try:
             files_list = get_available_files(measures_site, pattern)
+
+            if len(files_list) == 0:
+                # nothing found there, RemoteError
+                # no exception, so the sites must have no files found
+                raise RemoteError("Unable to retrieve list of available measures versions, measures_site value may be an empty list or no files were found at measures_site, check and try again.")
 
             # because the prefix changed during the development of the NRAO/casa measures
             # tarballs this list needs to be sorted, excluded everything before "Measures_".
@@ -205,6 +222,10 @@ def measures_available(measures_site=None, logger=None):
                     
             return (result)
     
+        except RemoteError as exc:
+            # reraise this as is
+            raise exc
+        
         except NoNetwork as exc:
             # reraise this as is
             raise exc

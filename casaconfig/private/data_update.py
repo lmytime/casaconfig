@@ -43,7 +43,9 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     than data_update_interval (a config value) days since the last check for a 
     more recent version then this function does nothing even if there is a more
     recent version available from the CASA server. Using force=True forces a check
-    for a more recent version, ignoring the days since the last check.
+    for a more recent version, ignoring the days since the last check.  The 
+    data_update_interval is always used as an int type (including
+    any truncation of the actual value in config if not an integer).
 
     If force is True then the requested version (or the latest version available
     now) is installed even if that version is already installed or a check for the
@@ -192,7 +194,7 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
     currentDate = dataReadmeInfo['date']
     installed_files = dataReadmeInfo['manifest']
     if dataReadmeInfo['age'] is not None:
-        ageRecent = dataReadmeInfo['age'] < _config.data_update_interval
+        ageRecent = dataReadmeInfo['age'] < int(_config.data_update_interval)
 
     if currentVersion == 'unknown':
         msgs = []
@@ -207,8 +209,8 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
         raise BadReadme('data_update: the readme.txt file at path did not contain the expected list of installed files')
 
     if version is None and force is False and ageRecent:
-        # if version is None, the readme is less than 1 day old  and force is False then return without checking for any newer versions
-        print_log_messages('data_update: version installed or checked less than 1 day ago, nothing updated or checked', logger, verbose=verbose)
+        # if version is None, the readme is less than data_update_interval days old  and force is False then return without checking for any newer versions
+        print_log_messages('data_update: version installed or checked less than %s day(s) ago, nothing updated or checked' % int(_config.data_update_interval), logger, verbose=verbose)
         # no lock has been set yet, safe to simply return here
         return
 
@@ -281,7 +283,6 @@ def data_update(path=None, version=None, force=False, logger=None, auto_update_r
             currentVersion = dataReadmeInfo['version']
             currentDate = dataReadmeInfo['date']
             installedFiles = dataReadmeInfo['manifest']
-            ageRecent = dataReadmeInfo['age'] < _config.data_update_interval
             if ((currentVersion == requestedVersion) and (not force)):
                 if expectedMeasuresVersion is not None:
                     # this is a 'release' update request, need to check that the measures version is also now OK
