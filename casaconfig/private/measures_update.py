@@ -390,7 +390,8 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
 
                 # create a new readme.txt file
                 with open(readme_path,'w') as fid:
-                    fid.write("# measures data populated by casaconfig\nsite : %s\nversion : %s\ndate : %s" % (site, target, datetime.today().strftime('%Y-%m-%d')))
+                    # site added last to not break past readers of the measures readme
+                    fid.write("# measures data populated by casaconfig\nversion : %s\ndate : %s\nsite : %s" % (target, datetime.today().strftime('%Y-%m-%d'),site))
 
                 clean_lock = True
                 print_log_messages('  ... measures data updated at %s' % path, logger, verbose=verbose)
