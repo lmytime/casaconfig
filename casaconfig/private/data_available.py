@@ -42,7 +42,9 @@ def data_available():
 
     """
 
+    import urllib.error
     from .get_available_files import get_available_files
+    from .CasaconfigErrors import RemoteError, NoNetwork
 
     # the pattern matches <anything>_Measures_YYYY.MM.DD-v.<anything>tar<anything>
     # where YYYY MM DD are digits that must match that length.
@@ -56,8 +58,12 @@ def data_available():
 
     try:
         return get_available_files('https://go.nrao.edu/casarundata', pattern)
+    
     except urllib.error.URLError as urlerr:
         raise RemoteError("Unable to retrieve list of available casarundata versions : " + str(urlerr)) from None
+
+    except NoNetwork as exc:
+        raise
         
     except Exception as exc:
         msg = "Unexpected exception while getting list of available casarundata versions : " + str(exc)
