@@ -80,6 +80,9 @@ def summary(configDict = None):
             msg += "; legacy data not maintained by casaconfig"
         elif measVers == "error":
             msg += "; unexpected readme.txt file, measures should be reinstalled"
+        measSite = dataInfo['measures']['site']
+        if measSite is not None and len(measSite) > 0:
+            msg = msg + " site : " + measSite
         print(msg)
     
     if (dataInfo['release'] is None):

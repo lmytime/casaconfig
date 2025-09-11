@@ -1,10 +1,17 @@
 import unittest
-import os, shutil, stat, sys, subprocess, time
+import os, shutil, stat, sys, subprocess, time, re
+import copy
 from datetime import date, timedelta
 import site
 sitepackages = site.getsitepackages()[0]
 
 import casaconfig
+
+def setDefaultConfig():
+    '''sets config to the default values'''
+    from casaconfig import config
+    for k in config.__defaults:
+        config.__dict__[k] = copy.deepcopy(config._config_defaults.__dict__[k])
 
 class casaconfig_test(unittest.TestCase):
 
@@ -14,6 +21,8 @@ class casaconfig_test(unittest.TestCase):
 
         self.test_configpath =  os.path.join(os.path.expanduser("~/.casa/"),"config.py")
         self.test_siteconfigpath = os.path.join(os.getcwd(),'testsiteconfig.py')
+
+        setDefaultConfig()
 
         # testmeasures is used for measures-only tests
         # testrundata is used for full data install tests (at least casarundata is installed, which includes measures)
@@ -38,7 +47,7 @@ class casaconfig_test(unittest.TestCase):
 
         if os.path.isfile(os.path.expanduser("~/.casa/config.py.user")):
             os.replace(os.path.expanduser("~/.casa/config.py.user"), os.path.expanduser("~/.casa/config.py"))
-
+ 
     def rmTestDirs(self):
         if os.path.exists(self.testMeasPath):
             shutil.rmtree(self.testMeasPath)
@@ -85,12 +94,12 @@ class casaconfig_test(unittest.TestCase):
         self.assertTrue(dataInfo['version']==measVers,"unexpected version installed by populate_testmeasures at %s : %s != %s" % (self.testMeasPath, dataInfo['version'], measVers))
 
     def populate_testrundata(self):
-        # ensures that there's some casaconfig populated casarundata at self.testMeasPath
+        # ensures that there's some casaconfig populated casarundata at self.testRundataPath
         # if there's a known version there it leave it as is
         # if the data info is None then it populates it with the most recent casarundata
         # the data info version can not be illegal or unknown (something unexpected is already there)
         # this function works as a test, but it happens on demand in an attempt to limit the calls to pull_data
-        
+
         dataInfo = casaconfig.get_data_info(self.testRundataPath, type='casarundata')
         if dataInfo is not None:
             version = dataInfo['version']
@@ -230,7 +239,7 @@ class casaconfig_test(unittest.TestCase):
         # final check that the expected version is now installed
         installedVers = casaconfig.get_data_info(path=self.testRundataPath,type='measures')['version']
         self.assertTrue(installedVers == vers, "expected version was not installed : %s != %s" % (installedVers, vers))
-        
+         
     @unittest.skipIf(not os.path.exists(os.path.join(sitepackages,'casatools')), "casatools not found")
     def test_auto_update_measures(self):
         '''Test Automatic Measures Updates to measurespath'''
@@ -258,6 +267,7 @@ class casaconfig_test(unittest.TestCase):
         f.write('measurespath = "{}"\n'.format(self.testRundataPath))
         f.write('measures_auto_update = True\n')
         f.write('data_auto_update = False\n')
+        f.write('casaconfig_verbose = 2\n')
         f.close()
 
         # start a new casatools, which should update the measures to the most recent version
@@ -270,7 +280,7 @@ class casaconfig_test(unittest.TestCase):
         # output should contain the latest version string
         ref = self.get_meas_avail()[-1] in str(output)
         self.assertTrue(ref, "Update Failed")
-
+ 
     @unittest.skipIf(not os.path.exists(os.path.join(sitepackages,'casatools')), "casatools not found")
     def test_auto_install_data(self):
         '''Test auto install of all data to measurespath on casatools startup'''
@@ -625,6 +635,14 @@ class casaconfig_test(unittest.TestCase):
         # This should work on any non-open path that isn't a measurespath. I think the cwd will
         # work just fine for that purposes.
 
+        # it needs something there to trigger the NoReadme
+        junkFileCreated = False
+        junkFilePath = os.path.join(os.getcwd(),"_junk_")
+        if not os.path.exists(junkFilePath):
+            with open(junkFilePath,'x') as f:
+                pass
+            junkFileCreated = True
+
         # data_update NoReadme
         try:
             exceptionSeen = False
@@ -648,6 +666,10 @@ class casaconfig_test(unittest.TestCase):
             print("unexpected exception seen when testing for NoReadme in measures_update")
             print(str(exc))
         self.assertTrue(exceptionSeen, "NoReadme not seen from measures_update")
+        
+        # clean up, remove junk
+        if junkFileCreated:
+            os.remove(junkFilePath)
 
         # NotWritable  : path is not writable by the user
         # use the emptyPath
@@ -743,15 +765,13 @@ class casaconfig_test(unittest.TestCase):
         ref = True if "UnsetMeasurespath" in str(output) else False
         self.assertTrue(ref, "UnsetMeasurespath not seen in output for do_auto_updates and measurespath=None")
 
-
     def test_exceptions_with_data(self):
         '''test that exceptions that require data happen when expected'''
        
         # these tests requires an already installed set of data
         self.populate_testrundata()
-
+ 
         # BadLock
-        print("\nTesting for BadLock in test_exceptions_with_data")
         # insert a non-empty lock file
         exceptionSeen = False
         lockPath = os.path.join(self.testRundataPath,'data_update.lock')
@@ -785,8 +805,6 @@ class casaconfig_test(unittest.TestCase):
         self.assertTrue(exceptionSeen, "BadLock not seen as expected in data_update with existing data test")
         # remove the lock file
         os.remove(lockPath)
-        print("BadLock test passed in test_exceptions_with_data\n")
-            
 
         # BadReadme
 
@@ -850,7 +868,6 @@ class casaconfig_test(unittest.TestCase):
             # this check happens before the age is determined, so no need to backdate the readme.txt file here
             casaconfig.measures_update(self.testRundataPath)
         except casaconfig.BadReadme as exc:
-            print(str(exc))
             exceptionSeen = True
         except Exception as exc:
             print("unexpected exception seen when testing for BadRadme in measures_update")
@@ -864,12 +881,10 @@ class casaconfig_test(unittest.TestCase):
 
         # get the current permissions of the testRundataPath
         orig_pstat = stat.S_IMODE(os.stat(self.testRundataPath).st_mode)
-        print('orig_pstat = %s' % orig_pstat)
         # a bitmask that's the opposite of all of the write permission bits
         no_write = ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         # remove the write permissions
         pstat = orig_pstat & no_write
-        print('pstat = %s' % pstat)
         os.chmod(self.testRundataPath,pstat)
 
 
@@ -883,16 +898,174 @@ class casaconfig_test(unittest.TestCase):
         except Exception as exc:
             print("unexpected exception seen when testing for NotWritable in measures_update")
             print(str(exc))
-            import traceback
-            traceback.print_exc()
             
         # reset to original permissions before anything else is checked
         os.chmod(self.testRundataPath,orig_pstat)
         
         self.assertTrue(exceptionSeen, "NotWritable not seen from measures_update")
 
+    def siteAge(self, ma_site):
+        # given a list returned by measures_available return the age of the last file in the list
+        dateMatch = re.search(r".*_Measures_(\d{4})(\d{2})(\d{2})-.*", ma_site[-1])
+        fileDate = date(int(dateMatch.group(1)), int(dateMatch.group(2)), int(dateMatch.group(3)))
+        dateDiff = date.today() - fileDate
+        return dateDiff.days
+
+    def test_measures_site(self):
+        '''tests related to measures site'''
+
+        from casaconfig import config
+
+        # measures_available should work for the default list and each element individually
+        ma = casaconfig.measures_available()
+        self.assertTrue(ma[0] in config.measures_site, "measures_available first element is not an element of config.measures_site")
+
+        # this test code assumes there are 2 sites, if that ever is not the case someone will need
+        # to make this more general
+        site_0 = config.measures_site[0]
+        site_1 = config.measures_site[1]
+
+        site_0_ma = casaconfig.measures_available(measures_site=site_0)
+        self.assertTrue(site_0_ma[0]==site_0)
+        site_age_0 = self.siteAge(site_0_ma)
+
+        site_1_ma = casaconfig.measures_available(measures_site=site_1)
+        self.assertTrue(site_1_ma[0]==site_1)
+        site_age_1 = self.siteAge(site_1_ma)
+
+        # reversing the list should get the currently second site, unless that site is too old
+        if site_age_1 <= config.measures_site_interval:
+            # site is not too old
+            config.measures_site.reverse()
+            ma = casaconfig.measures_available()
+            self.assertTrue(ma[0]==site_1, "reversing measures_site did not return the second site list as expected")
+            config.measures_site.reverse()
+        else:
+            print("test_measures_site, skipping test of reversing measures_site as %s appears to be out of date" % site_1)
+
+        # everything is out of date, finds the youngest or first site if they are both the same age
+        youngestSite = site_0 if site_age_0 <= site_age_1 else site_1
+        config.measures_site_interval = -1
+        ma = casaconfig.measures_available()
+        self.assertTrue(ma[0]==youngestSite,"list from youngest site not return with measures_site_interval = -1")
+
+        # reverse the list, if they are the same age the first one (now site_1) will be used
+        # otherwise it will still return whatever the youngestSite was above
+        config.measures_site.reverse()
+        if site_age_0 == site_age_1:
+            ma = casaconfig.measures_available()
+            self.assertTrue(ma[0]==site_1, "reversing measures_site with measures_site_interval = -1 did not return list from second site, sites have same age")
+        else:
+            ma = casaconfig.measures_available()
+            self.assertTrue(ma[0]==youngestSite, "reversing measures_site with measures_site_interval = -1 did not return list from youngest site, sites have same age")
+
+        # return to default values
+        config.measures_site = copy.deepcopy(config._config_defaults.measures_site)
+        config.measures_site_interval = config._config_defaults.measures_site_interval
+
+        # the rest of the tests use the test_measures area
+        self.populate_testmeasures()
+
+        # install an older version from each site
+        # check that without specifying the site it finds the site
+        # check that with specifying the correct site it finds the site
+        # check that when given the wrong site it doesn't find it
+
+        site_0_version = site_0_ma[-3]
+        site_1_version = site_1_ma[-4]
+
+        di = casaconfig.get_data_info(path=self.testMeasPath, type='measures')
+        print('di : %s' % str(di))
         
-        
+        for site, vers, altSite in [(site_0, site_0_version, site_1), (site_1, site_1_version, site_0)]:
+             # let it find the site
+            casaconfig.measures_update(path=self.testMeasPath, version=vers, force=True)
+            di = casaconfig.get_data_info(path=self.testMeasPath, type='measures')
+            self.assertTrue(di['site']==site and di['version']==vers)
+
+            # give it the site
+            casaconfig.measures_update(path=self.testMeasPath,version=vers,measures_site=site, force=True)
+            di = casaconfig.get_data_info(path=self.testMeasPath, type='measures')
+            self.assertTrue(di['site']==site and di['version']==vers)
+
+            # this fails without throwing an exception, first, force an update to the most recent version at this site
+            casaconfig.measures_update(path=self.testMeasPath, measures_site=site, force=True)
+            di = casaconfig.get_data_info(path=self.testMeasPath, type='measures')
+            # it should not be the vers being checked here
+            self.assertTrue(di['version'] != vers, "unexpected version installed, this should not happen here")
+            installedVersion = di['version']
+            # trying to install this version from the wrong site will not change that version
+            casaconfig.measures_update(path=self.testMeasPath, version=vers, measures_site=altSite, force=True)
+            di = casaconfig.get_data_info(path=self.testMeasPath, type='measures')
+            self.assertTrue(di['version'] != vers and di['version']==installedVersion, "measures_update unexpectedly installed a version that should not exist at the requested site")
+
+        # use a site that exists but has no valid measures files - casarundata
+        # each of those should raise a RemoteError exception
+        exceptionCaught = False
+        casarundataURL = 'https://go.nrao.edu/casarundata'
+        try:
+            ma = casaconfig.measures_available(measures_site=[casarundataURL])
+        except casaconfig.RemoteError as exc:
+            exceptionCaught = True
+        self.assertTrue(exceptionCaught, "measures_available on an exisitng site in list with no measures tar files did not raised the expected exception")
+
+        exceptionCaught = False
+        try:
+            ma = casaconfig.measures_available(measures_site=casarundataURL)
+        except casaconfig.RemoteError as exc:
+            exceptionCaught = True
+        self.assertTrue(exceptionCaught, "measures_available on an exisitng site with no measures tar files did not raised the expected exception")
+
+        exceptionCaught = False
+        try:
+            ma = casaconfig.measures_update(path=self.testMeasPath, measures_site=casarundataURL, force=True)
+        except casaconfig.RemoteError as exc:
+            exceptionCaught = True
+        self.assertTrue(exceptionCaught, "measures_update on an exisitng site with no[ measures tar files did not raised the expected exception")
+            
+        # add this in at the head of a measures_site list that contains valid sites should silenently move on to a valid site
+        siteList = [casarundataURL] + config.measures_site
+        exceptionCaught = False
+        try:
+            ma = casaconfig.measures_available(measures_site=siteList)
+        except casaconfig.RemoteError as exc:
+            exceptionCaught = True
+        self.assertFalse(exceptionCaught, "measures_available on a list with one empty site at head and non-empty sites unexpectedly raised an exception")
+
+    def test_update_interval(self):
+        '''tests use of config update_interval values'''
+
+        from casaconfig import config
+        self.populate_testrundata()
+
+        # data
+        # populate with an older data
+        da = casaconfig.data_available()
+        casaconfig.data_update(self.testRundataPath,version=da[-2],force=True)
+        # default data_update_interval will not allow an update at this point
+        casaconfig.data_update(self.testRundataPath)
+        di = casaconfig.get_data_info(self.testRundataPath, type='casarundata')
+        self.assertTrue(di['version'] == da[-2],'data_update unexpectedly updated when data_update_interval should not have allowed it to update')
+        # this means data_update always checks and updates if necessary
+        config.data_update_interval = -1
+        casaconfig.data_update(self.testRundataPath)
+        di = casaconfig.get_data_info(self.testRundataPath, type='casarundata')
+        self.assertFalse(di['version'] == da[-2],'data_update did not update casarundata version as expected with negative data_update_interval')
+
+        # measures
+        # populate with an older data
+        ma = casaconfig.measures_available()
+        casaconfig.measures_update(self.testRundataPath,version=ma[-2],force=True)
+        # default measures_update_interval will not allow an update at this point
+        casaconfig.measures_update(self.testRundataPath)
+        di = casaconfig.get_data_info(self.testRundataPath,type='measures')
+        self.assertTrue(di['version'] == ma[-2],'measures_update unexpectedly updated when measures_update_interval should not have allowed it to update')
+        # this means measures_update always checks and updates if necessary
+        config.measures_update_interval = -1
+        casaconfig.measures_update(self.testRundataPath)
+        di = casaconfig.get_data_info(self.testRundataPath,type='measures')
+        self.assertFalse(di['version'] == ma[-2],'measures_update did not update measures version as expected with negative measures_update_interval')
+
 if __name__ == '__main__':
 
     unittest.main()

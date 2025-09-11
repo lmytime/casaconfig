@@ -42,48 +42,28 @@ def data_available():
 
     """
 
-    import html.parser
-    import urllib.request
     import urllib.error
-    import ssl
-    import certifi
+    from .get_available_files import get_available_files
+    from .CasaconfigErrors import RemoteError, NoNetwork
 
-    from casaconfig import RemoteError
-    from casaconfig import NoNetwork
-
-    from .have_network import have_network
-
-    if not have_network():
-        raise NoNetwork("No network, can not find the list of available data.")
-    
-    class LinkParser(html.parser.HTMLParser):
-        def reset(self):
-            super().reset()
-            self.rundataList = []
-
-        def handle_starttag(self, tag, attrs):
-            if tag == 'a':
-                for (name, value) in attrs:
-                    # only care if this is an href and the value starts with
-                    # casarundata and has '.tar.' somewhere later and does not end in .md5
-                    if name == 'href' and (value.startswith('casarundata') and (value.rfind('.tar')>11) and (value[-4:] != '.md5')):
-                        # only add it to the list if it's not already there
-                        if (value not in self.rundataList):
-                            self.rundataList.append(value)
+    # the pattern matches <anything>_Measures_YYYY.MM.DD-v.<anything>tar<anything>
+    # where YYYY MM DD are digits that must match that length.
+    #       v is also a digit, but it can be 1 or more digits in length
+    #       and "tar" can appear anywhere after the "." after the "v" digit(s)
+    #       this allows the specific compression to change over time so
+    #       long as the tarfile module can understand that compression
+    #       Note that "get_available_files" always exludes files that end in
+    #       ".md5" so it's not necessary to exclude that string from this pattern.
+    pattern = r"^casarundata-\d{4}\.\d{2}\.\d{2}-\d+\..*tar.*"
 
     try:
-        context = ssl.create_default_context(cafile=certifi.where())
-        with urllib.request.urlopen('https://go.nrao.edu/casarundata/', context=context, timeout=400) as urlstream:
-            parser = LinkParser()
-            encoding = urlstream.headers.get_content_charset() or 'UTF-8'
-            for line in urlstream:
-                parser.feed(line.decode(encoding))
-
-        # return the sorted list, earliest versions are first, newest is last
-        return sorted(parser.rundataList)
-
+        return get_available_files('https://go.nrao.edu/casarundata', pattern)
+    
     except urllib.error.URLError as urlerr:
         raise RemoteError("Unable to retrieve list of available casarundata versions : " + str(urlerr)) from None
+
+    except NoNetwork as exc:
+        raise
         
     except Exception as exc:
         msg = "Unexpected exception while getting list of available casarundata versions : " + str(exc)

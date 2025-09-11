@@ -30,12 +30,16 @@ def print_log_messages(msg, logger, is_err=False, verbose=2):
        - msg (str) - The message to print and optionally log.
        - logger (casatools.logsink) - Instance of the casalogger to use. Not used if None.
        - is_err (bool=False) - When False, output goes to sys.stdout and logged as INFO level. When True, output goes to sys.stderr and logged as SEVERE
-       - verbose (int=2) - When < 2 then msg is only printed if there is no logger, otherwise it's just logged
+       - verbose (int=2) - 0 - do nothing, 1 log unless there is no logger, then print, 2 log and print
 
     Returns
        None
 
     """
+
+    if verbose == 0:
+        # do nothing
+        return
 
     import sys
     fileout = sys.stdout
@@ -48,8 +52,8 @@ def print_log_messages(msg, logger, is_err=False, verbose=2):
     if type(msg) is not list:
         msg = [msg]
 
-    # always print if there is no logger, if there is a logger and verbose is < 2 then do not print
-    if (logger is None) or (not verbose < 2):
+    # print if there is no logger or verbose >= 2
+    if (logger is None) or (verbose >= 2):
         for m_msg in msg:
             print(m_msg,file=fileout)
 

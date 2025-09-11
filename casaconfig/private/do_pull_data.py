@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-def do_pull_data(path, version, installed_files, currentVersion, currentDate, logger):
+def do_pull_data(path, version, installed_files, currentVersion, currentDate, logger, verbose):
     """
     Pull the casarundata for the given version and install it in path, removing
     the installed files and updating the readme.txt file when done.
@@ -30,6 +30,7 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
        - currentVersion (str) - from the readme file if it already exists, or an empty string if there is no previously installed version.
        - currentDate (str) - from the readme file if it already exists, or an empty string if there is no previously installed version.
        - logger (casatools.logsink) - Instance of the casalogger to use for writing messages. Messages are always written to the terminal. Set to None to skip writing messages to a logger.
+       - verbose (int) - Level of output, 0 is none, 1 is to logger, 2 is to logger and terminal.
 
     Returns
        None
@@ -37,15 +38,11 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
     """
 
     import os
-    import sys
     from datetime import datetime
-    import ssl
-    import urllib.request
-    import certifi
-    import tarfile
     import shutil
 
     from .print_log_messages import print_log_messages
+    from .do_untar_url import do_untar_url
     
     readme_path = os.path.join(path, 'readme.txt')
 
@@ -53,7 +50,7 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
         # remove the previously installed files
         # remove this readme file so it's not confusing if something goes wrong after this
         os.remove(readme_path)
-        print_log_messages('Removing files using manifest from previous install of %s on %s' % (currentVersion, currentDate), logger)
+        print_log_messages('Removing files using manifest from previous install of %s on %s' % (currentVersion, currentDate), logger, verbose=verbose)
         for relpath in installed_files:
             filepath = os.path.join(path,relpath)
             # don't say anything if filepath isn't found, remove it if it is found
@@ -81,27 +78,10 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
     # okay, safe to install the requested version
 
     goURL = 'https://go.nrao.edu/casarundata'
-    context = ssl.create_default_context(cafile=certifi.where())
 
-    # need to first resolve the go.nrao.edu URL to find the actual data URL
-    dataURLroot = urllib.request.urlopen(goURL, context=context).url
-    dataURL = os.path.join(dataURLroot, version)
+    # extract version from goURL to path, no custom extraction filter, verbose output, use the logger when set
+    do_untar_url(goURL, version, path, None, "downloading casarundata contents to ", logger)
     
-    with urllib.request.urlopen(dataURL, context=context, timeout=400) as tstream, tarfile.open(fileobj=tstream, mode='r|*') as tar :
-        l = int(tstream.headers.get('content-length', 0))
-        sizeString = "unknown size"
-        if (l>0): sizeString = ("%.0fM" % (l/(1024*1024)))
-        # use print directly to make use of the end argument
-        print('downloading casarundata contents to %s (%s) ... ' % (path,sizeString), file = sys.stdout, end="" )
-        sys.stdout.flush()
-        # also log it
-        if logger is not None: logger.post('downloading casarundata contents to %s ...' % path, 'INFO')
-        # use the 'data' filter if available, revert to previous 'fully_trusted' behavior of not available
-        tar.extraction_filter = getattr(tarfile, 'data_filter', (lambda member, path: member))
-        tar.extractall(path=path)
-        
-    print("done", file=sys.stdout)
-        
     # the tarball has been extracted to path/version
     # get the instaled files of files to be written to the readme file
     versdir = os.path.join(path,version[:version.index('.tar')])
@@ -133,4 +113,4 @@ def do_pull_data(path, version, installed_files, currentVersion, currentDate, lo
         for f in installed_files:
             fid.write("\n%s" % f)
 
-    print_log_messages('casarundata installed %s at %s' % (version, path), logger)
+    print_log_messages('casarundata installed %s at %s' % (version, path), logger, verbose=verbose)
