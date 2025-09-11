@@ -353,7 +353,7 @@ def measures_update(path=None, version=None, force=False, measures_site=None, lo
                 # but that isn't checked - this could install a version that's already installed
                 target = files[-1] if version is None else version
                 if target not in files:
-                    print_log_messages("measures_update can't find specified version %s at site %s" % (site,target), logger, True)
+                    print_log_messages("measures_update can't find specified version %s at site %s" % (target,site), logger, True)
                     # unset site here to signal nothing to extract
                     site = None
 
