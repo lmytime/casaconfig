@@ -27,7 +27,7 @@ def have_network():
     ### copied from in casagui/utils/__init__.py
     ###
     try:
-        with urllib.request.urlopen('http://clients3.google.com/generate_204') as response:
+        with urllib.request.urlopen('http://cp.cloudflare.com/generate_204') as response:
             return response.status == 204
     except urllib.error.HTTPError:
         ### http error
